@@ -8,7 +8,7 @@ from scrapy.selector import Selector
 from scrapy import http
 import scrapy
 import re
-
+from bs4 import BeautifulSoup
 
 ### = Note For Other Readers
 # = Note For Me 
@@ -38,6 +38,7 @@ class NewspaperSpider(scrapy.Spider):
         for url in top_urls:
             yield scrapy.Request(url=url, callback=self.parse2)
     
+    ###Find the page links for the various websites
     def parse2(self, response):
         h = response.xpath('//*[@id="firstHeading"]/i/text()').extract()[0]
         
@@ -59,9 +60,10 @@ class NewspaperSpider(scrapy.Spider):
     
     # TO-DO: Seal Entry by finding best way to validly join links, Now that I know regex, use it to identify photographer patterns  
     # If the path is more than 3 folder deep, choose another link
+    
     def parse3(self, response):
         all_links = response.xpath('/html/body//a/@href').extract()
-        sports_pages = [link for link in all_links if re.search('[Ss]ports', link) is not None]
+        sports_pages = [link for link in all_links if re.search('[Ss]ports', link) is not None] #and (len(link) < 59)
         
         p_title = response.xpath('//title/text()').extract()[0]
         
@@ -74,19 +76,44 @@ class NewspaperSpider(scrapy.Spider):
         
         yield scrapy.Request(url=sports_home, callback=self.parse4)
         
-    
+    # TO-DO: Link Clean-Up at Every step. Handle None-Detected case: 'Cant Find Article Tag, ..., URL Joins' 
     def parse4(self, response):
         p_title = response.xpath('//title/text()').extract()[0]
         
         #list of URLs
+        #keys: ['item-text', 'headline', 'article', 'section']
+        # Sports Links response.xpath('//a//@href').re('^.*sports.*')
         articles = response.xpath('//article//a//@href').extract()
         
-        yield {
-                
-                p_title : articles
-                
-            }
+        for article in articles:
+            yield scrapy.Request(url=article, callback=self.parse5)
             
+    def parse5(self, response):
+        soup = BeautifulSoup(response.body)
+        
+        #Chicago Times Solution
+        p_title = response.xpath('//title/text()').extract()[0]
+        
+        matches = []
+        p_match_list =soup.find('div', class_=lambda x: x and 'caption' in x)
+        p_match = [tag.string for tag in p_match_list.children if p_match_list is not None]
+        cap = p_match[0]
+        
+        re_patterns = ['(\(.*\))(.)*','\|(.)*']
+        
+        for p in re_patterns:
+            m = re.search(p, cap)
+            if m:
+                matches.append(m.group())
+                
+            
+        
+            yield {p_title: matches}
+        # keys : [tag=cite,figcaption, 'caption', 'credit', 'image-caption', '|', '[...]', '(...)', class=photo-caption,image-caption,credit img__credit ] 
+        # handle galleries
+        # Match the last sentence
+        # Detect pay wall
+        
 
 
 # In[ ]:
@@ -168,6 +195,12 @@ class NewspaperSpider(scrapy.Spider):
 
     
 # urls
+
+
+# In[20]:
+
+
+len('http://www.sandiegouniontribune.com/sports/#nt=oft12aH-2li3')
 
 
 # In[ ]:
