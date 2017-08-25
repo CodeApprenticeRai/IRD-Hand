@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 ###Every Spider must subclass 'scrapy.Spider'
 class NewspaperSpider(scrapy.Spider):
     
-    ###import to give each spider a name because you run spiders by calling them by name.
+    ###Import to give each spider a name because you run spiders by calling them by name.
     name = 'newspapers_tt'
     
     ###Important thing I noticed: (See Below)
@@ -40,10 +40,10 @@ class NewspaperSpider(scrapy.Spider):
     
     ###Find the page links for the various websites
     def parse2(self, response):
+        ###Select Header Text
         h = response.xpath('//*[@id="firstHeading"]/i/text()').extract()[0]
         
-        # TO-DO: Check to see if there is more than one  website link.
-        # load both, see which one has more links, then follow the one with more links
+        ### Select Newpapers Links
         sup_link1 = response.xpath('//table[@class="infobox vcard"]/tr[last() -1]//a/@href').extract()[0]
         sup_link2 = response.xpath('//table[@class="infobox vcard"]/tr[last()]//a/@href').extract()[0]
         
@@ -67,48 +67,52 @@ class NewspaperSpider(scrapy.Spider):
         
         p_title = response.xpath('//title/text()').extract()[0]
         
-        
-        ### Not Necessarily true, but is a pretty safe assumption.
-        sports_home = sports_pages[0]
-        
+        count = 0
+        sports_home = sports_pages[count]
+		
         if '.com' not in sports_pages[0]:
             sports_home = response.urljoin(sports_pages[0])
+			
+        if len(sports_home) > 50:
+            sports_home = re.search('(?:[^\/]*\/){4}', sports_pages[0]).group()
         
-        yield scrapy.Request(url=sports_home, callback=self.parse4)
+        
+        
+		
+		
+        yield { p_title: sports_home}
         
     # TO-DO: Link Clean-Up at Every step. Handle None-Detected case: 'Cant Find Article Tag, ..., URL Joins' 
-    def parse4(self, response):
-        p_title = response.xpath('//title/text()').extract()[0]
+    # def parse4(self, response):
+        # p_title = response.xpath('//title/text()').extract()[0]
         
         #list of URLs
         #keys: ['item-text', 'headline', 'article', 'section']
         # Sports Links response.xpath('//a//@href').re('^.*sports.*')
-        articles = response.xpath('//article//a//@href').extract()
         
-        for article in articles:
-            yield scrapy.Request(url=article, callback=self.parse5)
+        # for article in articles:
+            # yield scrapy.Request(url=article, callback=self.parse5)
             
-    def parse5(self, response):
-        soup = BeautifulSoup(response.body)
+    # def parse5(self, response):
+        # soup = BeautifulSoup(response.body)
         
         #Chicago Times Solution
-        p_title = response.xpath('//title/text()').extract()[0]
+        # p_title = response.xpath('//title/text()').extract()[0]
         
-        matches = []
-        p_match_list =soup.find('div', class_=lambda x: x and 'caption' in x)
-        p_match = [tag.string for tag in p_match_list.children if p_match_list is not None]
-        cap = p_match[0]
+        # p_match_list =soup.find('div', class_=lambda x: x and 'caption' in x)
+        # p_match = [tag.string for tag in p_match_list.children]
+        # cap = p_match[0]
         
-        re_patterns = ['(\(.*\))(.)*','\|(.)*']
+        # re_patterns = ['(\(.*\))(.)*','\|(.)*']
         
-        for p in re_patterns:
-            m = re.search(p, cap)
-            if m:
-                matches.append(m.group())
+        # for p in re_patterns:
+            # m = re.search(p, cap)
+            # if m:
+                # matches.append(m.group())
                 
             
         
-            yield {p_title: matches}
+            # yield {p_title: matches}
         # keys : [tag=cite,figcaption, 'caption', 'credit', 'image-caption', '|', '[...]', '(...)', class=photo-caption,image-caption,credit img__credit ] 
         # handle galleries
         # Match the last sentence
